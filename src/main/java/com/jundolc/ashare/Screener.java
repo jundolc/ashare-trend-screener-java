@@ -1,12 +1,13 @@
 package com.jundolc.ashare;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import static com.jundolc.ashare.Model.*;
 
 final class Screener {
     Optional<Match> evaluate(List<Bar> input, Quote q, Rules rules) {
         List<Bar> history=input.stream().filter(b -> b.date().isBefore(q.date()))
-                .sorted(Comparator.comparing(Bar::date)).toList();
+                .sorted(Comparator.comparing(Bar::date)).collect(Collectors.toList());
         if(history.size()<20 || q.price()<=0 || q.open()<=0 || q.previousClose()<=0 || q.volumeShares()<0) return Optional.empty();
         List<Double> closes=new ArrayList<>(); for(Bar b:history) closes.add(b.close()); closes.add(q.price());
         List<Double> ma5=rolling(closes,5); double m5=last(ma5), m10=last(rolling(closes,10)), m20=last(rolling(closes,20));
@@ -26,4 +27,3 @@ final class Screener {
         for(int i=0;i<v.size();i++){sum+=v.get(i);if(i>=n)sum-=v.get(i-n);if(i>=n-1)out.add(sum/n);} return out; }
     private double last(List<Double> x){return x.get(x.size()-1);}
 }
-

@@ -1,16 +1,17 @@
 package com.jundolc.ashare;
 
 import java.io.IOException;
-import java.net.URI;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLEncoder;
-import java.net.http.*;
 import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.util.*;
 import static com.jundolc.ashare.Model.*;
 
 final class MarketClient {
-    private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build();
     private final int retries;
     MarketClient(int retries){this.retries=retries;}
 
@@ -57,10 +58,19 @@ final class MarketClient {
         for(Object o:Json.list(rows)){List<Object>x=Json.list(o);double raw=Json.num(x.get(5));double shares=(symbol.startsWith("sh688")?raw:raw*100);out.add(new Bar(LocalDate.parse(Json.str(x.get(0))),Json.num(x.get(1)),Json.num(x.get(2)),shares));}return out;
     }
     private String get(String url,java.nio.charset.Charset charset)throws Exception{
-        Exception last=null;for(int i=1;i<=retries;i++)try{HttpRequest req=HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30)).header("User-Agent","Mozilla/5.0").GET().build();HttpResponse<byte[]>r=http.send(req,HttpResponse.BodyHandlers.ofByteArray());if(r.statusCode()/100!=2)throw new IOException("HTTP "+r.statusCode());return new String(r.body(),charset);}catch(Exception e){last=e;if(i<retries)Thread.sleep(i*1000L);}throw last;
+        Exception last=null;
+        for(int i=1;i<=retries;i++) try {
+            HttpURLConnection connection=(HttpURLConnection)new URL(url).openConnection();
+            connection.setConnectTimeout(15000); connection.setReadTimeout(30000);
+            connection.setRequestProperty("User-Agent","Mozilla/5.0");
+            int status=connection.getResponseCode(); if(status/100!=2)throw new IOException("HTTP "+status);
+            ByteArrayOutputStream bytes=new ByteArrayOutputStream(); InputStream in=connection.getInputStream();
+            byte[] buffer=new byte[8192]; int n; while((n=in.read(buffer))!=-1)bytes.write(buffer,0,n); in.close(); connection.disconnect();
+            return new String(bytes.toByteArray(),charset);
+        } catch(Exception e){last=e;if(i<retries)Thread.sleep(i*1000L);}
+        throw last;
     }
-    private static String enc(String s){return URLEncoder.encode(s,StandardCharsets.UTF_8);}
+    private static String enc(String s){try{return URLEncoder.encode(s,"UTF-8");}catch(Exception e){throw new IllegalStateException(e);}}
     private static String fmt(LocalDate d){return d.toString().replace("-","");}
     private static double d(String s){return Double.parseDouble(s);}
 }
-

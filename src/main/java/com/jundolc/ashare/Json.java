@@ -12,11 +12,10 @@ final class Json {
     private Object value() {
         ws();
         if (pos >= text.length()) throw error("unexpected end");
-        return switch (text.charAt(pos)) {
-            case '{' -> object(); case '[' -> array(); case '"' -> string();
-            case 't' -> literal("true", true); case 'f' -> literal("false", false);
-            case 'n' -> literal("null", null); default -> number();
-        };
+        char c=text.charAt(pos);
+        if(c=='{') return object(); if(c=='[') return array(); if(c=='"') return string();
+        if(c=='t') return literal("true",true); if(c=='f') return literal("false",false); if(c=='n') return literal("null",null);
+        return number();
     }
     private Map<String,Object> object() {
         Map<String,Object> out = new LinkedHashMap<>(); pos++; ws();
@@ -33,11 +32,10 @@ final class Json {
         while (pos < text.length()) {
             char c=text.charAt(pos++); if (c=='"') return b.toString();
             if (c!='\\') { b.append(c); continue; }
-            char e=text.charAt(pos++); b.append(switch(e) {
-                case '"','\\','/' -> e; case 'b' -> '\b'; case 'f' -> '\f';
-                case 'n' -> '\n'; case 'r' -> '\r'; case 't' -> '\t';
-                case 'u' -> (char)Integer.parseInt(text.substring(pos, pos+=4),16);
-                default -> throw error("bad escape"); });
+            char e=text.charAt(pos++);
+            if(e=='"'||e=='\\'||e=='/') b.append(e); else if(e=='b')b.append('\b'); else if(e=='f')b.append('\f');
+            else if(e=='n')b.append('\n'); else if(e=='r')b.append('\r'); else if(e=='t')b.append('\t');
+            else if(e=='u'){b.append((char)Integer.parseInt(text.substring(pos,pos+4),16));pos+=4;} else throw error("bad escape");
         } throw error("unterminated string");
     }
     private Number number() {
@@ -56,7 +54,7 @@ final class Json {
     @SuppressWarnings("unchecked") static List<Object> list(Object o){ return (List<Object>)o; }
     static String str(Object o){ return o==null ? "" : String.valueOf(o); }
     static double num(Object o){
-        if(o instanceof Number n) return n.doubleValue();
+        if(o instanceof Number) return ((Number)o).doubleValue();
         String value=str(o).trim();
         if(value.isEmpty() || value.equals("-") || value.equals("null")) return Double.NaN;
         return Double.parseDouble(value);

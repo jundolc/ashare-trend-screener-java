@@ -1,19 +1,9 @@
 package com.jundolc.ashare;
-
 import java.time.LocalDate;
-
 final class Model {
-    private Model() {}
-
-    record Quote(String code, String name, double price, double open,
-                 double previousClose, double volumeShares, LocalDate date) {}
-
-    record Bar(LocalDate date, double open, double close, double volumeShares) {}
-
-    record Rules(double volumeRatioMax, boolean maOrder, int ma5RisingDays) {}
-
-    record Match(String code, String name, double price, double changePercent,
-                 long currentVolume, long average5Volume, long volumeLimit,
-                 double volumeRatio, double ma5, double ma10, double ma20) {}
+ private Model() {}
+ static final class Quote { private final String code,name; private final double price,open,previousClose,volumeShares; private final LocalDate date; Quote(String c,String n,double p,double o,double pc,double v,LocalDate d){code=c;name=n;price=p;open=o;previousClose=pc;volumeShares=v;date=d;} String code(){return code;} String name(){return name;} double price(){return price;} double open(){return open;} double previousClose(){return previousClose;} double volumeShares(){return volumeShares;} LocalDate date(){return date;} }
+ static final class Bar { private final LocalDate date; private final double open,close,volumeShares; Bar(LocalDate d,double o,double c,double v){date=d;open=o;close=c;volumeShares=v;} LocalDate date(){return date;} double open(){return open;} double close(){return close;} double volumeShares(){return volumeShares;} }
+ static final class Rules { private final double volumeRatioMax; private final boolean maOrder; private final int ma5RisingDays; Rules(double v,boolean m,int r){volumeRatioMax=v;maOrder=m;ma5RisingDays=r;} double volumeRatioMax(){return volumeRatioMax;} boolean maOrder(){return maOrder;} int ma5RisingDays(){return ma5RisingDays;} }
+ static final class Match { private final String code,name; private final double price,changePercent,volumeRatio,ma5,ma10,ma20; private final long currentVolume,average5Volume,volumeLimit; Match(String c,String n,double p,double cp,long cv,long av,long vl,double vr,double m5,double m10,double m20){code=c;name=n;price=p;changePercent=cp;currentVolume=cv;average5Volume=av;volumeLimit=vl;volumeRatio=vr;ma5=m5;ma10=m10;ma20=m20;} String code(){return code;} String name(){return name;} double price(){return price;} double changePercent(){return changePercent;} long currentVolume(){return currentVolume;} long average5Volume(){return average5Volume;} long volumeLimit(){return volumeLimit;} double volumeRatio(){return volumeRatio;} double ma5(){return ma5;} double ma10(){return ma10;} double ma20(){return ma20;} }
 }
-

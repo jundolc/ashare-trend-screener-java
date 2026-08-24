@@ -1,6 +1,6 @@
 # A股上涨趋势缩量回调筛选器（Java版）
 
-这是 Python 版本的独立 Java 17+ 实现，不依赖 Maven、Gradle或第三方库。
+这是 Python 版本的独立 Java 8 实现，不依赖 Maven、Gradle或第三方库。
 
 ## 运行
 
