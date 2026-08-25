@@ -7,6 +7,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.time.*;
 import java.util.*;
 import static com.jundolc.ashare.Model.*;
@@ -17,8 +18,11 @@ final class MarketClient {
 
     List<Quote> spot() throws Exception {
         try { List<Quote> q=eastmoneySpot(); System.out.println("INFO 实时行情源：东方财富"); return q; }
-        catch(Exception first){ System.out.println("WARN 东方财富不可用，自动切换新浪行情："+first.getClass().getSimpleName());
-            List<Quote> q=sinaSpot(); System.out.println("INFO 实时行情源：新浪（备用）"); return q; }
+        catch(Exception first){ System.out.println("WARN 东方财富不可用，自动切换新浪行情："+shortError(first));
+            try { List<Quote> q=sinaSpot(); System.out.println("INFO 实时行情源：新浪（备用）"); return q; }
+            catch(Exception second){ System.out.println("WARN 新浪不可用，自动切换腾讯行情："+shortError(second));
+                List<Quote> q=tencentSpot(); System.out.println("INFO 实时行情源：腾讯（备用）"); return q; }
+        }
     }
     private List<Quote> eastmoneySpot() throws Exception {
         List<Quote> out=new ArrayList<>(); int page=1,total=Integer.MAX_VALUE;
@@ -39,6 +43,12 @@ final class MarketClient {
             for(Object o:rows){Map<String,Object> r=Json.map(o);String raw=Json.str(r.get("symbol"));String code=raw.replaceAll(".*?(\\d{6})$","$1");
                 out.add(new Quote(code,Json.str(r.get("name")),Json.num(r.get("trade")),Json.num(r.get("open")),Json.num(r.get("settlement")),Json.num(r.get("volume")),LocalDate.now()));}
         } return out;
+    }
+    List<Quote> tencentSpot() throws Exception {
+        List<String> symbols=new ArrayList<>();Map<String,String> names=new HashMap<>();int offset=0,total=Integer.MAX_VALUE;
+        while(offset<total){String url="https://proxy.finance.qq.com/cgi/cgi-bin/rank/hs/getBoardRankList?_appver=11.17.0&board_code=aStock&sort_type=price&direct=down&offset="+offset+"&count=200";Map<String,Object> data=Json.map(Json.map(Json.parse(get(url,StandardCharsets.UTF_8))).get("data"));total=(int)Json.num(data.get("total"));List<Object> rows=Json.list(data.get("rank_list"));if(rows.isEmpty())break;for(Object o:rows){Map<String,Object> row=Json.map(o);String symbol=Json.str(row.get("code"));symbols.add(symbol);names.put(symbol,Json.str(row.get("name")));}offset+=rows.size();}
+        List<Quote> out=new ArrayList<>();for(int start=0;start<symbols.size();start+=100){List<String> batch=symbols.subList(start,Math.min(start+100,symbols.size()));String body=get("https://qt.gtimg.cn/q="+String.join(",",batch),Charset.forName("GBK"));for(String line:body.split(";")){int marker=line.indexOf("v_"),equals=line.indexOf('=');if(marker<0||equals<0)continue;String symbol=line.substring(marker+2,equals);int first=line.indexOf('"',equals),last=line.lastIndexOf('"');if(first<0||last<=first)continue;String[] x=line.substring(first+1,last).split("~",-1);if(x.length<7)continue;String code=symbol.replaceAll(".*?(\\d{6})$","$1");out.add(new Quote(code,names.containsKey(symbol)?names.get(symbol):code,safeDouble(x[3]),safeDouble(x[5]),safeDouble(x[4]),safeDouble(x[6])*100,LocalDate.now()));}}
+        if(out.size()<4000)throw new IOException("腾讯全市场行情数量异常："+out.size());return out;
     }
     List<Bar> history(String code,LocalDate start,LocalDate end) throws Exception {
         try{return eastmoneyHistory(code,start,end);}catch(Exception e){return tencentHistory(code,start,end);}
@@ -67,10 +77,12 @@ final class MarketClient {
             ByteArrayOutputStream bytes=new ByteArrayOutputStream(); InputStream in=connection.getInputStream();
             byte[] buffer=new byte[8192]; int n; while((n=in.read(buffer))!=-1)bytes.write(buffer,0,n); in.close(); connection.disconnect();
             return new String(bytes.toByteArray(),charset);
-        } catch(Exception e){last=e;if(i<retries)Thread.sleep(i*1000L);}
+        } catch(Exception e){last=e;if(e instanceof IOException&&String.valueOf(e.getMessage()).contains("HTTP 456"))throw e;if(i<retries)Thread.sleep(i*1000L);}
         throw last;
     }
     private static String enc(String s){try{return URLEncoder.encode(s,"UTF-8");}catch(Exception e){throw new IllegalStateException(e);}}
     private static String fmt(LocalDate d){return d.toString().replace("-","");}
     private static double d(String s){return Double.parseDouble(s);}
+    private static double safeDouble(String s){try{return Double.parseDouble(s);}catch(Exception e){return Double.NaN;}}
+    private static String shortError(Exception e){return e.getClass().getSimpleName()+(e.getMessage()==null?"":" ("+e.getMessage()+")");}
 }
